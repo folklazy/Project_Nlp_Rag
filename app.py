@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 import torch
 
 try:
-    from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+    from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
     RAG_LLM_READY = True
 except Exception:
     RAG_LLM_READY = False
@@ -41,24 +41,26 @@ def load_rag_components():
     if not RAG_LLM_READY:
         return embed_model, db_collection, None
 
-    model_name = "mistralai/Mistral-7B-Instruct-v0.2"
+    # Qwen2.5 - โมเดลคุณภาพสูง ดีสำหรับ Q&A และรองรับภาษาไทย
+    model_name = "Qwen/Qwen2.5-1.5B-Instruct"
 
     try:
         with st.spinner(f"กำลังโหลด LLM {model_name} ..."):
 
             tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-            llm_model = AutoModelForSeq2SeqLM.from_pretrained(
+            # ใช้ device_map="auto" ให้ accelerate จัดการ device อัตโนมัติ
+            llm_model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-                device_map="auto" if torch.cuda.is_available() else None
+                device_map="auto"
             )
 
+            # ไม่ต้องระบุ device เมื่อใช้ device_map="auto"
             rag_pipeline = pipeline(
-                "text2text-generation",
+                "text-generation",
                 model=llm_model,
-                tokenizer=tokenizer,
-                device=0 if torch.cuda.is_available() else -1
+                tokenizer=tokenizer
             )
 
     except Exception as e:
@@ -87,23 +89,30 @@ def get_rag_answer(query_text, embed_model, db_collection, rag_pipeline):
         return f"❌ เกิดปัญหาในการค้นหา ChromaDB: {e}"
 
     try:
-        prompt = f"""
-Use the context below to answer the question clearly and concisely in English.
-If the information is not available in the context, state that politely.
-
+        prompt = f"""<|im_start|>system
+You are a helpful assistant. Answer questions based ONLY on the given context. Keep answers short and direct (2-3 sentences max). If the answer is not in the context, say "I don't have that information."
+<|im_end|>
+<|im_start|>user
 Context:
 {context}
 
 Question: {query_text}
-Answer:
+<|im_end|>
+<|im_start|>assistant
 """
         outputs = rag_pipeline(
             prompt,
-            max_new_tokens=350,
-            temperature=0.7,
+            max_new_tokens=150,
+            temperature=0.3,
             do_sample=True,
+            return_full_text=False,  # ไม่รวม prompt ในผลลัพธ์
+            pad_token_id=rag_pipeline.tokenizer.eos_token_id
         )
-        return outputs[0]['generated_text'].strip()
+        answer = outputs[0]['generated_text'].strip()
+        # ตัด <|im_end|> ออกถ้ามี
+        if "<|im_end|>" in answer:
+            answer = answer.split("<|im_end|}")[0].strip()
+        return answer
 
     except Exception as e:
         return f"❌ เกิดข้อผิดพลาดในการสร้างคำตอบจาก LLM: {e}"
