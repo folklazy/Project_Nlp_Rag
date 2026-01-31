@@ -126,7 +126,7 @@ Customize response behavior in `app.py`:
 ```python
 outputs = rag_pipeline(
     prompt,
-    max_new_tokens=150,   # Max response length
+    max_new_tokens=300,   # Max response length (increased for detailed answers)
     temperature=0.3,      # Lower = more focused, higher = more creative
     do_sample=True,       # Enable sampling
 )
@@ -139,9 +139,19 @@ Adjust retrieval in `get_rag_answer()`:
 ```python
 results = db_collection.query(
     query_embeddings=query_embedding.tolist(),
-    n_results=5  # Number of context chunks to retrieve
+    n_results=10  # Number of context chunks to retrieve
 )
 ```
+
+### Chunking Strategy
+
+The vector database uses **RecursiveCharacterTextSplitter** with:
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| **chunk_size** | 500 chars | Optimal size for embedding model |
+| **chunk_overlap** | 100 chars | Preserves context between chunks |
+| **min_chunk_size** | 50 chars | Filters out tiny fragments |
 
 ---
 

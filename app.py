@@ -80,17 +80,22 @@ def get_rag_answer(query_text, embed_model, db_collection, rag_pipeline):
 
     try:
         query_embedding = embed_model.encode([query_text])
+        # เพิ่มจำนวน chunks ที่ retrieve เพื่อให้ได้ context ครบถ้วนขึ้น
         results = db_collection.query(
             query_embeddings=query_embedding.tolist(),
-            n_results=5
+            n_results=10  # เพิ่มจาก 5 เป็น 10
         )
-        context = "\n".join(results["documents"][0])
+        context = "\n\n".join(results["documents"][0])
     except Exception as e:
         return f"❌ เกิดปัญหาในการค้นหา ChromaDB: {e}"
 
     try:
         prompt = f"""<|im_start|>system
-You are a helpful assistant. Answer questions based ONLY on the given context. Keep answers short and direct (2-3 sentences max). If the answer is not in the context, say "I don't have that information."
+You are a helpful assistant answering questions about the book "The Heart of a Woman" by Baroness Orczy.
+Answer based ONLY on the given context. Be thorough and complete.
+- For questions asking for lists (e.g., "all characters", "who are"), provide a complete list with brief descriptions.
+- For descriptive questions, give detailed answers.
+- If the answer is not in the context, say "I don't have that information."
 <|im_end|>
 <|im_start|>user
 Context:
@@ -102,16 +107,16 @@ Question: {query_text}
 """
         outputs = rag_pipeline(
             prompt,
-            max_new_tokens=150,
+            max_new_tokens=300,  # เพิ่มจาก 150 เป็น 300
             temperature=0.3,
             do_sample=True,
-            return_full_text=False,  # ไม่รวม prompt ในผลลัพธ์
+            return_full_text=False,
             pad_token_id=rag_pipeline.tokenizer.eos_token_id
         )
         answer = outputs[0]['generated_text'].strip()
         # ตัด <|im_end|> ออกถ้ามี
         if "<|im_end|>" in answer:
-            answer = answer.split("<|im_end|}")[0].strip()
+            answer = answer.split("<|im_end|>")[0].strip()
         return answer
 
     except Exception as e:
