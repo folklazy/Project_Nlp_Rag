@@ -60,11 +60,11 @@ Project_Nlp_Rag/
 ├── app.py                      # Main Streamlit application
 ├── chroma_db_optimized/        # Pre-built vector database
 │   ├── chroma.sqlite3          # SQLite metadata store
-│   └── *.bin                   # Embedding vectors
+│   └── [embedding folders]/    # Vector embedding data
 ├── notebook/
-│   ├── chuckstovec.ipynb       # Data preparation pipeline
 │   └── datasets/
-│       └── *.txt               # Source book text files
+│       ├── chunks.py           # Chunking utility script
+│       └── Baronness Orczy___The Heart of a Woman.txt
 └── README.md
 ```
 
@@ -181,11 +181,11 @@ The vector database uses **RecursiveCharacterTextSplitter** with:
 
 **Symptom**: `❌ ไม่พบโฟลเดอร์ ChromaDB`
 
-**Solution**: Run the data preparation notebook:
+**Solution**: Run the chunking script to rebuild the vector database:
 ```bash
-cd notebook
-jupyter notebook chuckstovec.ipynb
-# Execute all cells to rebuild the vector database
+# From project root directory
+python notebook/datasets/chunks.py
+# Follow prompts to rebuild the database
 ```
 
 ### Slow Performance on CPU
